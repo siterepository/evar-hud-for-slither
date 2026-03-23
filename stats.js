@@ -19,7 +19,7 @@
   var exportButton = document.getElementById("exportButton");
   var scoreTrendChart = document.getElementById("scoreTrendChart");
   var killsDurationChart = document.getElementById("killsDurationChart");
-  var radarChart = document.getElementById("radarChart");
+  var strengthBars = document.getElementById("strengthBars");
   var scoreDistChart = document.getElementById("scoreDistChart");
   var tabBtns = document.querySelectorAll(".tab-btn");
   var displayNameInput = document.getElementById("displayName");
@@ -32,6 +32,44 @@
   var setupNotice = document.getElementById("setupNotice");
 
   var currentHistory = [];
+
+  // ─── Profanity / Offensive-Word Filter ──────────────────────────────────
+  var BLOCKED_WORDS = [
+    "fuck","shit","ass","bitch","damn","dick","cock","cunt","bastard","whore",
+    "slut","fag","faggot","nigger","nigga","retard","retarded","chink","spic",
+    "kike","gook","wetback","beaner","cracker","honky","tranny","dyke","twat",
+    "piss","wanker","bollocks","arse","arsehole","asshole","motherfucker",
+    "fucker","dumbass","jackass","shithead","dickhead","pussy","penis","vagina",
+    "tits","boobs","dildo","hentai","porn","porno","nazi","hitler","stalin",
+    "epstein","epstine","kkk","jihad","rape","rapist","molest","pedo","pedophile",
+    "predator","kill yourself","kys","suicide","die","stfu","gtfo","thot",
+    "incel","simp","cuck","pdf","pdfile"
+  ];
+  var BLOCKED_RE = null;
+  function buildBlockedRegex() {
+    if (BLOCKED_RE) return BLOCKED_RE;
+    var escaped = BLOCKED_WORDS.map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); });
+    BLOCKED_RE = new RegExp("(?:^|\\W)(" + escaped.join("|") + ")(?:\\W|$)", "i");
+    return BLOCKED_RE;
+  }
+  function containsOffensive(text) {
+    if (!text) return false;
+    var clean = text.replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+    var deLeeted = clean.replace(/0/g, "o").replace(/1/g, "i").replace(/3/g, "e").replace(/4/g, "a").replace(/5/g, "s").replace(/7/g, "t").replace(/@/g, "a");
+    return buildBlockedRegex().test(text) || buildBlockedRegex().test(clean) || buildBlockedRegex().test(deLeeted);
+  }
+
+  // Collect all unique in-game names from history
+  function getUsedNames(hist) {
+    var seen = {};
+    for (var i = 0; i < hist.length; i++) {
+      var n = hist[i].inGameName;
+      if (n && typeof n === "string" && n.trim().length > 0 && !containsOffensive(n)) {
+        seen[n.trim()] = true;
+      }
+    }
+    return Object.keys(seen);
+  }
 
   // ─── UUID ─────────────────────────────────────────────────────────────────
   function generateUuid() {
@@ -229,71 +267,166 @@
     return count > 0 ? sum / count : 0;
   }
 
-  function drawRadarChartFn(metrics, hist) {
-    if (!hist.length) { drawEmpty(radarChart, "Play some games to see your strengths."); return; }
-    var s = getCCtx(radarChart), ctx = s.ctx, W = s.w, H = s.h;
-    ctx.clearRect(0, 0, W, H);
+  function tierClass(pct) {
+    if (pct >= 75) return "tier-great";
+    if (pct >= 50) return "tier-good";
+    if (pct >= 25) return "tier-mid";
+    return "tier-low";
+  }
 
-    var cx = W / 2, cy = H / 2 + 8;
-    var radius = Math.min(W, H) * 0.34;
-    var dims = [
-      { label: "Survival", value: Math.min(1, metrics.avgDuration / 600) },
-      { label: "Growth", value: Math.min(1, metrics.avgGainPerMin / 400) },
-      { label: "Aggression", value: Math.min(1, metrics.avgKills / 5) },
-      { label: "Peak Power", value: Math.min(1, (metrics.bestByScore ? toNumber(metrics.bestByScore.maxScore) : 0) / 30000) },
-      { label: "Consistency", value: computeConsistency(hist) }
+  // Kill/Death efficiency: kills per minute alive
+  function computeKPM(hist) {
+    var tK = 0, tD = 0;
+    for (var i = 0; i < hist.length; i++) { tK += toNumber(hist[i].kills); tD += toNumber(hist[i].durationSec); }
+    return tD > 0 ? tK / (tD / 60) : 0;
+  }
+
+  // Average score retained (final / max)
+  function computeRetention(hist) {
+    if (!hist.length) return 0;
+    var sum = 0, count = 0;
+    for (var i = 0; i < hist.length; i++) {
+      var mx = toNumber(hist[i].maxScore);
+      if (mx > 50) { sum += toNumber(hist[i].finalScore) / mx; count++; }
+    }
+    return count > 0 ? sum / count : 0;
+  }
+
+  // What % of games reach 1000+
+  function compute1kRate(hist) {
+    if (!hist.length) return 0;
+    var count = 0;
+    for (var i = 0; i < hist.length; i++) { if (toNumber(hist[i].maxScore) >= 1000) count++; }
+    return count / hist.length;
+  }
+
+  // Average spike (peak growth per second in a sample window)
+  function computeAvgSpike(hist) {
+    var sum = 0, count = 0;
+    for (var i = 0; i < hist.length; i++) {
+      var pk = toNumber(hist[i].peakGrowth);
+      if (pk > 0) { sum += pk; count++; }
+    }
+    return count > 0 ? sum / count : 0;
+  }
+
+  function renderStrengthBars(metrics, hist) {
+    strengthBars.textContent = "";
+    if (!hist.length) {
+      var empty = document.createElement("div");
+      empty.className = "str-desc";
+      empty.style.padding = "40px 0";
+      empty.style.textAlign = "center";
+      empty.textContent = "Play some games to see your player profile.";
+      strengthBars.appendChild(empty);
+      return;
+    }
+
+    var avgDur = metrics.avgDuration;
+    var avgGPM = metrics.avgGainPerMin;
+    var avgK = metrics.avgKills;
+    var bestScore = metrics.bestByScore ? toNumber(metrics.bestByScore.maxScore) : 0;
+    var consistency = computeConsistency(hist);
+    var kpm = computeKPM(hist);
+    var retention = computeRetention(hist);
+    var reach1k = compute1kRate(hist);
+    var avgSpike = computeAvgSpike(hist);
+
+    // Conservative scaling — 100% is genuinely elite
+    var bars = [
+      {
+        name: "Survival",
+        value: fmtDur(avgDur),
+        pct: Math.min(95, Math.round((avgDur / 900) * 100)),   // 15 min avg = 100%
+        tip: avgDur >= 420 ? null : "Hug the edges of the map early — less traffic, more free orbs.",
+        win: avgDur >= 420 ? "Averaging " + Math.round(avgDur / 60) + "+ minutes alive. You know how to stay alive under pressure." : null
+      },
+      {
+        name: "Growth Speed",
+        value: fmtCompact(avgGPM) + "/min",
+        pct: Math.min(95, Math.round((avgGPM / 600) * 100)),   // 600/min = elite
+        tip: avgGPM >= 200 ? null : "After a kill, immediately circle the remains — that's where the biggest orbs are.",
+        win: avgGPM >= 200 ? "Growing at " + fmtCompact(avgGPM) + "/min. You're converting food into size efficiently." : null
+      },
+      {
+        name: "Kill Aggression",
+        value: fmtDec(avgK, 1) + " kills/game",
+        pct: Math.min(95, Math.round((avgK / 8) * 100)),       // 8 kills/game = elite
+        tip: avgK >= 3 ? null : "Look for snakes boosting near you — cut across their path at a sharp angle.",
+        win: avgK >= 3 ? "Averaging " + fmtDec(avgK, 1) + " kills per game. You're a threat on the board." : null
+      },
+      {
+        name: "Kills Per Minute",
+        value: fmtDec(kpm, 2) + " k/min",
+        pct: Math.min(95, Math.round((kpm / 1.0) * 100)),      // 1 kill/min = elite
+        tip: kpm >= 0.4 ? null : "Don't chase kills — let them come to you. Position near busy areas and wait.",
+        win: kpm >= 0.4 ? "You find kills every " + Math.round(60 / Math.max(0.01, kpm)) + "s on average. Great hunting efficiency." : null
+      },
+      {
+        name: "Peak Size",
+        value: fmtCompact(bestScore),
+        pct: Math.min(95, Math.round((bestScore / 50000) * 100)),  // 50k = elite
+        tip: bestScore >= 10000 ? null : "Once you pass 5k, slow down and play defensive — protect what you've built.",
+        win: bestScore >= 10000 ? "Best of " + fmtCompact(bestScore) + "! You've reached serious leaderboard territory." : null
+      },
+      {
+        name: "Score Retention",
+        value: Math.round(retention * 100) + "% kept",
+        pct: Math.min(95, Math.round(retention * 125)),           // 80% retention = ~100
+        tip: retention >= 0.55 ? null : "You lose " + Math.round((1 - retention) * 100) + "% of your peak before dying. Retreat earlier when you feel pressure.",
+        win: retention >= 0.55 ? "You keep " + Math.round(retention * 100) + "% of your peak score. Smart exits and good awareness." : null
+      },
+      {
+        name: "Consistency",
+        value: Math.round(consistency * 100) + "%",
+        pct: Math.min(95, Math.round(consistency * 130)),         // ~77% = 100
+        tip: consistency >= 0.5 ? null : "Your scores swing wildly game to game. Try the same opening strategy each time.",
+        win: consistency >= 0.5 ? "Final scores are " + Math.round(consistency * 100) + "% of your max on average. Steady player." : null
+      },
+      {
+        name: "1K+ Rate",
+        value: Math.round(reach1k * 100) + "% of games",
+        pct: Math.min(95, Math.round(reach1k * 120)),            // ~83% = 100
+        tip: reach1k >= 0.5 ? null : "You reach 1,000+ in only " + Math.round(reach1k * 100) + "% of games. Focus on surviving the first 2 minutes.",
+        win: reach1k >= 0.5 ? Math.round(reach1k * 100) + "% of your games pass 1K. You rarely die small." : null
+      },
+      {
+        name: "Burst Power",
+        value: fmtCompact(avgSpike) + " spike",
+        pct: Math.min(95, Math.round((avgSpike / 300) * 100)),   // 300 spike = elite
+        tip: avgSpike >= 100 ? null : "Your growth spikes are small. Go for risky plays when you're below 500 size — low cost, high reward.",
+        win: avgSpike >= 100 ? "Average spike of " + fmtCompact(avgSpike) + ". You capitalize on big moments." : null
+      }
     ];
-    var n = dims.length, step = (Math.PI * 2) / n, start = -Math.PI / 2;
 
-    function pt(i, r) { var a = start + i * step; return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }; }
+    for (var i = 0; i < bars.length; i++) {
+      var b = bars[i];
+      var row = document.createElement("div"); row.className = "str-row";
 
-    // Concentric rings
-    var rings = [0.25, 0.5, 0.75, 1.0];
-    for (var ri = 0; ri < rings.length; ri++) {
-      ctx.strokeStyle = ri === rings.length - 1 ? "rgba(0,212,245,0.14)" : "rgba(0,212,245,0.06)";
-      ctx.lineWidth = 1; ctx.beginPath();
-      for (var pi = 0; pi <= n; pi++) { var pp = pt(pi % n, radius * rings[ri]); if (pi === 0) ctx.moveTo(pp.x, pp.y); else ctx.lineTo(pp.x, pp.y); }
-      ctx.stroke();
-    }
+      var header = document.createElement("div"); header.className = "str-header";
+      var name = document.createElement("span"); name.className = "str-name"; name.textContent = b.name;
+      var val = document.createElement("span"); val.className = "str-value"; val.textContent = b.value;
+      header.appendChild(name); header.appendChild(val);
 
-    // Axis lines
-    ctx.strokeStyle = "rgba(0,212,245,0.08)"; ctx.lineWidth = 1;
-    for (var ai = 0; ai < n; ai++) { var ap = pt(ai, radius); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ap.x, ap.y); ctx.stroke(); }
+      var track = document.createElement("div"); track.className = "str-track";
+      var fill = document.createElement("div"); fill.className = "str-fill " + tierClass(b.pct);
+      fill.style.width = Math.max(2, b.pct) + "%";
+      track.appendChild(fill);
 
-    // Player area — fill
-    ctx.beginPath();
-    for (var di = 0; di <= n; di++) { var dp = pt(di % n, radius * Math.max(0.04, dims[di % n].value)); if (di === 0) ctx.moveTo(dp.x, dp.y); else ctx.lineTo(dp.x, dp.y); }
-    var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-    grad.addColorStop(0, "rgba(0,212,245,0.22)"); grad.addColorStop(1, "rgba(0,212,245,0.04)");
-    ctx.fillStyle = grad; ctx.fill();
+      // Tip OR Win — never both
+      if (b.win) {
+        var winEl = document.createElement("div"); winEl.className = "str-win";
+        winEl.textContent = "\u2705 " + b.win;
+        row.appendChild(header); row.appendChild(track); row.appendChild(winEl);
+      } else if (b.tip) {
+        var tipEl = document.createElement("div"); tipEl.className = "str-tip";
+        tipEl.textContent = "\uD83D\uDCA1 " + b.tip;
+        row.appendChild(header); row.appendChild(track); row.appendChild(tipEl);
+      } else {
+        row.appendChild(header); row.appendChild(track);
+      }
 
-    // Player area — stroke with glow
-    ctx.beginPath();
-    for (var si = 0; si <= n; si++) { var sp = pt(si % n, radius * Math.max(0.04, dims[si % n].value)); if (si === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y); }
-    ctx.save(); ctx.shadowColor = "rgba(0,212,245,0.4)"; ctx.shadowBlur = 8;
-    ctx.strokeStyle = "rgba(0,220,250,0.85)"; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-
-    // Vertex dots
-    for (var vi = 0; vi < n; vi++) {
-      var vp = pt(vi, radius * Math.max(0.04, dims[vi].value));
-      ctx.save(); ctx.shadowColor = "rgba(0,212,245,0.6)"; ctx.shadowBlur = 6;
-      ctx.fillStyle = "#00d4f5"; ctx.beginPath(); ctx.arc(vp.x, vp.y, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    }
-
-    // Labels + percentages
-    for (var li = 0; li < n; li++) {
-      var lp = pt(li, radius + 22), angle = start + li * step;
-      ctx.textAlign = Math.abs(Math.cos(angle)) < 0.15 ? "center" : (Math.cos(angle) > 0 ? "left" : "right");
-      ctx.textBaseline = Math.abs(Math.sin(angle)) < 0.15 ? "middle" : (Math.sin(angle) > 0 ? "top" : "bottom");
-
-      ctx.font = "11px Segoe UI, system-ui, sans-serif";
-      ctx.fillStyle = "rgba(200,215,240,0.8)";
-      ctx.fillText(dims[li].label, lp.x, lp.y);
-
-      var pctPt = pt(li, radius + 36);
-      ctx.font = "bold 11px Cascadia Code, SF Mono, Consolas, monospace";
-      ctx.fillStyle = "rgba(0,212,245,0.7)";
-      ctx.fillText(Math.round(dims[li].value * 100) + "%", pctPt.x, pctPt.y);
+      strengthBars.appendChild(row);
     }
   }
 
@@ -433,7 +566,7 @@
       var it = hist[i], ttm = toFiniteOrNull(it.timeToMaxSec);
       var cells = [fmtDate(it.startedAt), it.inGameName || "-", fmtDur(toNumber(it.durationSec)),
         String(Math.round(toNumber(it.kills))), fmtCompact(toNumber(it.finalScore)), fmtCompact(toNumber(it.maxScore)),
-        fmtCompact(toNumber(it.totalGain)), fmtCompact(toNumber(it.peakGrowth)), ttm !== null ? fmtDur(ttm) : "-", it.host || "-"];
+        fmtCompact(toNumber(it.totalGain)), fmtCompact(toNumber(it.peakGrowth)), ttm !== null ? fmtDur(ttm) : "-"];
       var tr = document.createElement("tr");
       for (var j = 0; j < cells.length; j++) { var td = document.createElement("td"); td.textContent = cells[j]; tr.appendChild(td); }
       historyRows.appendChild(tr);
@@ -445,7 +578,7 @@
     var m = computeMetrics(hist);
     renderSummaryCards(m);
     renderDashboards(m);
-    drawRadarChartFn(m, hist);
+    renderStrengthBars(m, hist);
     drawScoreDistFn(hist);
     drawScoreTrend(hist);
     drawKillsDur(hist);
@@ -456,7 +589,7 @@
     chrome.storage.local.get([HISTORY_KEY], function (r) {
       var h = Array.isArray(r[HISTORY_KEY]) ? r[HISTORY_KEY] : [];
       h.sort(function (a, b) { return new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime(); });
-      currentHistory = h; renderAll(h);
+      currentHistory = h; renderAll(h); populateNamePicker(h);
     });
   }
 
@@ -487,9 +620,32 @@
       var s = r[SETTINGS_KEY]; if (s && typeof s.displayName === "string") displayNameInput.value = s.displayName;
     });
   }
+
+  function populateNamePicker(hist) {
+    var list = document.getElementById("namePickerList");
+    if (!list) return;
+    list.textContent = "";
+    var names = getUsedNames(hist);
+    for (var i = 0; i < names.length; i++) {
+      var opt = document.createElement("option");
+      opt.value = names[i];
+      list.appendChild(opt);
+    }
+  }
+
   displayNameInput.addEventListener("input", function () {
+    var val = displayNameInput.value.trim();
+    if (containsOffensive(val)) {
+      displayNameInput.style.setProperty("border-color", "#ff4444", "important");
+      displayNameInput.style.setProperty("color", "#ff4444", "important");
+      setSubmitStatus("Display name contains blocked words.", true);
+      return;
+    }
+    displayNameInput.style.removeProperty("border-color");
+    displayNameInput.style.removeProperty("color");
+    submitStatus.textContent = "";
     chrome.storage.local.get([SETTINGS_KEY], function (r) {
-      var s = r[SETTINGS_KEY] || {}; s.displayName = displayNameInput.value.trim();
+      var s = r[SETTINGS_KEY] || {}; s.displayName = val;
       var p = {}; p[SETTINGS_KEY] = s; chrome.storage.local.set(p, function () {});
     });
   });
@@ -500,14 +656,26 @@
   }
   function sbHeaders() { return { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY, "Content-Type": "application/json" }; }
 
+  // Active global category: "score", "time_to_10k", "time_to_20k", "time_to_50k", "time_to_100k"
+  var globalCategory = "score";
+
   function loadGlobalLeaderboard() {
     if (!isSBReady()) { setupNotice.style.display = "block"; globalLoading.style.display = "none"; globalEmpty.style.display = "none"; globalTableWrap.style.display = "none"; return; }
     setupNotice.style.display = "none"; globalLoading.style.display = "block"; globalTableWrap.style.display = "none"; globalEmpty.style.display = "none";
-    fetch(SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/leaderboard?select=*&order=best_score.desc&limit=50", { headers: sbHeaders() })
+
+    var orderCol = "best_score", orderDir = "desc";
+    var filterPart = "";
+    if (globalCategory === "time_to_10k") { orderCol = "time_to_10k"; orderDir = "asc"; filterPart = "&time_to_10k=not.is.null"; }
+    else if (globalCategory === "time_to_20k") { orderCol = "time_to_20k"; orderDir = "asc"; filterPart = "&time_to_20k=not.is.null"; }
+    else if (globalCategory === "time_to_50k") { orderCol = "time_to_50k"; orderDir = "asc"; filterPart = "&time_to_50k=not.is.null"; }
+    else if (globalCategory === "time_to_100k") { orderCol = "time_to_100k"; orderDir = "asc"; filterPart = "&time_to_100k=not.is.null"; }
+
+    var url = SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/leaderboard?select=*&order=" + orderCol + "." + orderDir + "&limit=50" + filterPart;
+    fetch(url, { headers: sbHeaders() })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (rows) {
         globalLoading.style.display = "none";
-        if (!Array.isArray(rows) || !rows.length) { globalEmpty.style.display = "block"; globalEmpty.textContent = "No scores yet. Be the first!"; return; }
+        if (!Array.isArray(rows) || !rows.length) { globalEmpty.style.display = "block"; globalEmpty.textContent = "No entries yet for this category. Be the first!"; return; }
         renderGlobalTable(rows); globalTableWrap.style.display = "block";
       })
       .catch(function () { globalLoading.style.display = "none"; globalEmpty.textContent = "Could not load leaderboard."; globalEmpty.style.display = "block"; });
@@ -515,26 +683,104 @@
 
   function renderGlobalTable(entries) {
     globalRows.textContent = "";
+    var isMilestone = globalCategory.indexOf("time_to_") === 0;
+
+    // Update the table header
+    var thead = document.querySelector("#globalTable thead tr");
+    if (thead) {
+      thead.textContent = "";
+      var cols = ["#", "Player", "Best Size", "Kills"];
+      if (isMilestone) {
+        var sizeLabel = globalCategory.replace("time_to_", "").toUpperCase();
+        cols.push("Time to " + sizeLabel);
+      } else {
+        cols.push("Duration");
+      }
+      cols.push("Submitted");
+      for (var c = 0; c < cols.length; c++) { var th = document.createElement("th"); th.textContent = cols[c]; thead.appendChild(th); }
+    }
+
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i], tr = document.createElement("tr");
       if (i === 0) tr.className = "rank-gold"; else if (i === 1) tr.className = "rank-silver"; else if (i === 2) tr.className = "rank-bronze";
-      var cells = [String(i + 1), e.display_name || "Anonymous Snake", fmtCompact(toNumber(e.best_score)), String(Math.round(toNumber(e.kills))), fmtDur(toNumber(e.duration_sec)), fmtRelative(e.submitted_at || "")];
+      var name = e.display_name || "Anonymous Snake";
+      if (containsOffensive(name)) name = "Anonymous Snake";
+      var timeVal = isMilestone ? fmtDur(toNumber(e[globalCategory])) : fmtDur(toNumber(e.duration_sec));
+      var cells = [String(i + 1), name, fmtCompact(toNumber(e.best_score)), String(Math.round(toNumber(e.kills))), timeVal, fmtRelative(e.submitted_at || "")];
       for (var j = 0; j < cells.length; j++) { var td = document.createElement("td"); td.textContent = cells[j]; tr.appendChild(td); }
       globalRows.appendChild(tr);
     }
   }
 
+  // Category tabs
+  function initGlobalCategoryTabs() {
+    var tabs = document.querySelectorAll(".global-cat-btn");
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].addEventListener("click", function () {
+        var all = document.querySelectorAll(".global-cat-btn");
+        for (var j = 0; j < all.length; j++) all[j].classList.remove("active");
+        this.classList.add("active");
+        globalCategory = this.dataset.cat;
+        updateGlobalTitle();
+        loadGlobalLeaderboard();
+      });
+    }
+  }
+
+  function updateGlobalTitle() {
+    var titleEl = document.getElementById("globalTitle");
+    if (!titleEl) return;
+    var titles = { score: "Best Size", time_to_10k: "Fastest to 10K", time_to_20k: "Fastest to 20K", time_to_50k: "Fastest to 50K", time_to_100k: "Fastest to 100K" };
+    titleEl.textContent = "Global Top 50 — " + (titles[globalCategory] || "Best Size");
+  }
+
   function setSubmitStatus(msg, err) { submitStatus.textContent = msg; submitStatus.className = "submit-status" + (err ? " error" : " success"); }
+
+  // Compute best milestones from all history
+  function computeBestMilestones(hist) {
+    var best = { time_to_10k: null, time_to_20k: null, time_to_50k: null, time_to_100k: null };
+    var sizes = [10000, 20000, 50000, 100000];
+    var keys = ["time_to_10k", "time_to_20k", "time_to_50k", "time_to_100k"];
+    for (var i = 0; i < hist.length; i++) {
+      for (var s = 0; s < sizes.length; s++) {
+        var sec = getMilestoneSec(hist[i], sizes[s]);
+        if (sec !== null && (best[keys[s]] === null || sec < best[keys[s]])) {
+          best[keys[s]] = sec;
+        }
+      }
+    }
+    return best;
+  }
 
   submitScoreBtn.addEventListener("click", function () {
     if (!isSBReady()) { setSubmitStatus("Supabase not configured.", true); return; }
     if (!currentHistory.length) { setSubmitStatus("No game history yet.", true); return; }
+
+    var dn = displayNameInput.value.trim() || "Anonymous Snake";
+    if (containsOffensive(dn)) { setSubmitStatus("Display name contains blocked words. Use a different name.", true); return; }
+
+    // Validate: name must come from actual gameplay or be default
+    var validNames = getUsedNames(currentHistory);
+    var isValid = dn === "Anonymous Snake";
+    for (var v = 0; v < validNames.length; v++) { if (validNames[v] === dn) { isValid = true; break; } }
+    if (!isValid) { setSubmitStatus("Use a name you've played with, or leave blank.", true); return; }
+
     var best = currentHistory[0];
     for (var i = 1; i < currentHistory.length; i++) { if (toNumber(currentHistory[i].maxScore) > toNumber(best.maxScore)) best = currentHistory[i]; }
-    var dn = displayNameInput.value.trim() || "Anonymous Snake";
+
+    var milestones = computeBestMilestones(currentHistory);
+
     submitScoreBtn.disabled = true; setSubmitStatus("Submitting…", false);
     getOrCreatePlayerId(function (pid) {
-      var payload = { player_id: pid, display_name: dn, best_score: toNumber(best.maxScore), kills: toNumber(best.kills), duration_sec: toNumber(best.durationSec), submitted_at: new Date().toISOString() };
+      var payload = {
+        player_id: pid, display_name: dn,
+        best_score: toNumber(best.maxScore), kills: toNumber(best.kills),
+        duration_sec: toNumber(best.durationSec), submitted_at: new Date().toISOString(),
+        time_to_10k: milestones.time_to_10k,
+        time_to_20k: milestones.time_to_20k,
+        time_to_50k: milestones.time_to_50k,
+        time_to_100k: milestones.time_to_100k
+      };
       var hdrs = sbHeaders(); hdrs.Prefer = "resolution=merge-duplicates";
       fetch(SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/leaderboard", { method: "POST", headers: hdrs, body: JSON.stringify(payload) })
         .then(function (r) { if (!r.ok) throw new Error(r.status); submitScoreBtn.disabled = false; setSubmitStatus("Submitted! Best: " + fmtCompact(payload.best_score), false); loadGlobalLeaderboard(); })
@@ -548,5 +794,6 @@
   chrome.storage.onChanged.addListener(function (c, a) { if (a === "local" && c[HISTORY_KEY]) loadAndRender(); });
 
   loadDisplayName();
+  initGlobalCategoryTabs();
   loadAndRender();
 })();

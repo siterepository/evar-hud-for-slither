@@ -8,55 +8,120 @@
   </head>
   <body>
     <main class="popup">
+
+      <!-- ── Header ── -->
       <header class="brand">
         <img src="logo.svg" alt="Logo" class="logo" />
-        <div>
-          <h1>EVAR HUD for Slither</h1>
-          <p>Real-time game analytics</p>
+        <div class="brand-text">
+          <h1>EVAR HUD</h1>
+          <p>Slither Analytics</p>
         </div>
       </header>
 
+      <!-- ── Quick Stats ── -->
       <div class="quick-stats">
         <div class="qs-item">
-          <span class="qs-val" id="qsGames">—</span>
+          <span class="qs-val" id="qsGames">&mdash;</span>
           <span class="qs-label">Games</span>
         </div>
         <div class="qs-item">
-          <span class="qs-val" id="qsBest">—</span>
+          <span class="qs-val" id="qsBest">&mdash;</span>
           <span class="qs-label">Best Size</span>
         </div>
         <div class="qs-item">
-          <span class="qs-val" id="qsKills">—</span>
+          <span class="qs-val" id="qsKills">&mdash;</span>
           <span class="qs-label">Total Kills</span>
         </div>
       </div>
 
       <div class="divider"></div>
 
-      <div class="setting-block">
-        <div class="setting-label">Overlay Position</div>
-        <div class="pos-grid">
-          <button class="pos-btn" data-pos="top-left">↖</button>
-          <button class="pos-btn" data-pos="top-right">↗</button>
-          <button class="pos-btn" data-pos="bottom-left">↙</button>
-          <button class="pos-btn" data-pos="bottom-right">↘</button>
+      <!-- ── Theme Picker ── -->
+      <section class="section">
+        <div class="section-header">HUD Theme</div>
+        <div class="theme-row" id="themePicker">
+          <button class="theme-swatch" data-theme="neon" title="Neon Serpent">
+            <span class="swatch-fill swatch-neon"></span>
+            <span class="swatch-name">Neon</span>
+          </button>
+          <button class="theme-swatch" data-theme="ember" title="Ember">
+            <span class="swatch-fill swatch-ember"></span>
+            <span class="swatch-name">Ember</span>
+          </button>
+          <button class="theme-swatch" data-theme="ghost" title="Ghost">
+            <span class="swatch-fill swatch-ghost"></span>
+            <span class="swatch-name">Ghost</span>
+          </button>
+          <button class="theme-swatch" data-theme="matrix" title="Matrix">
+            <span class="swatch-fill swatch-matrix"></span>
+            <span class="swatch-name">Matrix</span>
+          </button>
+          <button class="theme-swatch" data-theme="royal" title="Royal">
+            <span class="swatch-fill swatch-royal"></span>
+            <span class="swatch-name">Royal</span>
+          </button>
         </div>
-      </div>
-
-      <div class="setting-block">
-        <div class="setting-label">Background Opacity: <span id="opacityLabel">92%</span></div>
-        <input type="range" id="opacitySlider" min="0" max="100" value="92" step="5" />
-      </div>
-
-      <div class="setting-block">
-        <div class="setting-label">HUD Size: <span id="scaleLabel">100%</span></div>
-        <input type="range" id="scaleSlider" min="60" max="150" value="100" step="10" />
-      </div>
+      </section>
 
       <div class="divider"></div>
 
+      <!-- ── HUD Metrics Toggles ── -->
+      <section class="section">
+        <div class="section-header">HUD Metrics</div>
+        <div class="toggle-grid" id="toggleGrid">
+          <label class="toggle-item">
+            <input type="checkbox" data-metric="chart" checked />
+            <span class="toggle-track"><span class="toggle-knob"></span></span>
+            <span class="toggle-label">Growth Chart</span>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" data-metric="kills" checked />
+            <span class="toggle-track"><span class="toggle-knob"></span></span>
+            <span class="toggle-label">Kill Count</span>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" data-metric="score" checked />
+            <span class="toggle-track"><span class="toggle-knob"></span></span>
+            <span class="toggle-label">Score</span>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" data-metric="timer" checked />
+            <span class="toggle-track"><span class="toggle-knob"></span></span>
+            <span class="toggle-label">Game Timer</span>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" data-metric="notifications" checked />
+            <span class="toggle-track"><span class="toggle-knob"></span></span>
+            <span class="toggle-label">Notifications</span>
+          </label>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- ── Sliders ── -->
+      <section class="section">
+        <div class="slider-block">
+          <div class="slider-header">
+            <span class="slider-label">Background Opacity</span>
+            <span class="slider-val" id="opacityLabel">92%</span>
+          </div>
+          <input type="range" class="custom-range" id="opacitySlider" min="0" max="100" value="92" step="1" />
+        </div>
+        <div class="slider-block">
+          <div class="slider-header">
+            <span class="slider-label">HUD Size</span>
+            <span class="slider-val" id="scaleLabel">100%</span>
+          </div>
+          <input type="range" class="custom-range" id="scaleSlider" min="50" max="200" value="100" step="5" />
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- ── Action ── -->
       <button id="openStats" type="button" class="btn-primary">Open Dashboard</button>
-      <p id="status" role="status" aria-live="polite"></p>
+
     </main>
     <script src="popup.js"></script>
   </body>

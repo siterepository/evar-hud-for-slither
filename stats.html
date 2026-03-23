@@ -36,9 +36,9 @@
 
         <!-- Insights: Radar + Personal Bests -->
         <section class="duo-row">
-          <article class="panel radar-panel">
-            <h2>Player Strengths</h2>
-            <canvas id="radarChart" width="440" height="340"></canvas>
+          <article class="panel strengths-panel">
+            <h2>Player Profile</h2>
+            <div id="strengthBars" class="strength-bars"></div>
           </article>
           <article class="panel">
             <h2>Personal Bests</h2>
@@ -86,7 +86,6 @@
                   <th>Gain</th>
                   <th>Spike</th>
                   <th>To Max</th>
-                  <th>Host</th>
                 </tr>
               </thead>
               <tbody id="historyRows"></tbody>
@@ -104,19 +103,27 @@
 
         <section class="panel global-submit-panel">
           <h2>Submit Your Best Score</h2>
-          <p class="global-notice">Scores are submitted anonymously with a random player ID. Your display name is the only optional identifier.</p>
+          <p class="global-notice">Pick the name you played with. Your best score and fastest milestone times are submitted together.</p>
           <div class="submit-form">
             <div class="submit-row">
-              <label for="displayName">Display name (optional)</label>
-              <input type="text" id="displayName" maxlength="24" placeholder="Anonymous Snake" autocomplete="off" />
+              <label for="displayName">Display name (from your games)</label>
+              <input type="text" id="displayName" maxlength="24" placeholder="Anonymous Snake" autocomplete="off" list="namePickerList" />
+              <datalist id="namePickerList"></datalist>
             </div>
             <div id="submitStatus" class="submit-status"></div>
-            <button id="submitScoreBtn" type="button" class="btn-submit">Submit My Best Score</button>
+            <button id="submitScoreBtn" type="button" class="btn-submit">Submit My Best Score &amp; Times</button>
           </div>
         </section>
 
         <section class="panel">
-          <h2>Global Top 50 — Best Size</h2>
+          <div class="global-category-bar">
+            <button class="global-cat-btn active" data-cat="score">Best Size</button>
+            <button class="global-cat-btn" data-cat="time_to_10k">⚡ 10K</button>
+            <button class="global-cat-btn" data-cat="time_to_20k">⚡ 20K</button>
+            <button class="global-cat-btn" data-cat="time_to_50k">⚡ 50K</button>
+            <button class="global-cat-btn" data-cat="time_to_100k">⚡ 100K</button>
+          </div>
+          <h2 id="globalTitle">Global Top 50 — Best Size</h2>
           <div class="global-notice setup-notice" id="setupNotice" style="display:none">
             <strong>Setup required:</strong> Replace <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> in <code>stats.js</code> with your Supabase project credentials.
           </div>

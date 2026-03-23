@@ -12,9 +12,21 @@
   var OVERLAY_BOTTOM_PX = 80;
   var OVERLAY_WIDTH_PX = 270;
   var OVERLAY_HEIGHT_PX = 120;
+
+  // Theme color palettes
+  var THEMES = {
+    neon:   { accent: "0,212,245",   line: "#00d4f5", fill: "rgba(0,212,245,0.18)",  glow: "rgba(0,212,245,0.5)",  kill: "#ff4545", border: "rgba(0,212,245,0.18)" },
+    ember:  { accent: "255,107,53",  line: "#ff6b35", fill: "rgba(255,107,53,0.18)", glow: "rgba(255,107,53,0.5)", kill: "#ffab40", border: "rgba(255,107,53,0.18)" },
+    ghost:  { accent: "176,190,197", line: "#b0bec5", fill: "rgba(176,190,197,0.14)",glow: "rgba(176,190,197,0.4)",kill: "#e0e0e0", border: "rgba(176,190,197,0.12)" },
+    matrix: { accent: "0,255,65",    line: "#00ff41", fill: "rgba(0,255,65,0.16)",   glow: "rgba(0,255,65,0.45)",  kill: "#76ff03", border: "rgba(0,255,65,0.15)" },
+    royal:  { accent: "179,136,255", line: "#b388ff", fill: "rgba(179,136,255,0.18)",glow: "rgba(179,136,255,0.5)",kill: "#ea80fc", border: "rgba(179,136,255,0.18)" }
+  };
+
+  function getTheme() { return THEMES[hudSettings.theme] || THEMES.neon; }
+  function metricOn(key) { return !hudSettings.metrics || hudSettings.metrics[key] !== false; }
   var HISTORY_KEY = "slitherScoreLog.history.v1";
   var SETTINGS_KEY = "evarHud.settings.v1";
-  var DEFAULT_SETTINGS = { position: "bottom-left", opacity: 0.92, scale: 1.0 };
+  var DEFAULT_SETTINGS = { opacity: 0.92, scale: 1.0, theme: "neon", metrics: { chart: true, kills: true, score: true, timer: true, notifications: true } };
   var MAX_HISTORY_GAMES = 3000;
 
   var MIN_TIME_SPAN_SECONDS = 4 * 60;
@@ -34,8 +46,10 @@
   var container = null;
   var canvas = null;
   var ctx = null;
+  // controlsBar removed — settings live in popup only
   var booted = false;
   var domObserver = null;
+  var drawPending = false;
 
   var waitingForNewGame = true;
   var currentGame = createGameState(Date.now(), 0, null, null);
@@ -89,13 +103,8 @@
   }
 
   function applyOverlayStyles() {
-    var pos = hudSettings.position || "bottom-left";
-    var isBottom = pos.indexOf("bottom") !== -1;
-    var isRight = pos.indexOf("right") !== -1;
     var bgOpacity = hudSettings.opacity != null ? hudSettings.opacity : 0.92;
     var scale = hudSettings.scale != null ? hudSettings.scale : 1.0;
-
-    // Opacity only controls the background — text/lines stay fully visible
     var r = 8, g = 14, b = 28;
     var bgAlpha = Math.max(0, Math.min(1, bgOpacity)).toFixed(2);
 
@@ -110,7 +119,7 @@
     setStyleImportant(container, "opacity", "1");
     setStyleImportant(container, "background", "rgba(" + r + "," + g + "," + b + "," + bgAlpha + ")");
     setStyleImportant(container, "border-radius", "14px");
-    setStyleImportant(container, "border", "1px solid rgba(0, 212, 245, 0.18)");
+    setStyleImportant(container, "border", "1px solid " + getTheme().border);
     setStyleImportant(container, "box-shadow", "0 4px 20px rgba(0,0,0,0.4)");
     var blurPx = Math.round(bgOpacity * 14);
     var blurVal = blurPx > 0 ? "blur(" + blurPx + "px)" : "none";
@@ -119,12 +128,13 @@
     setStyleImportant(container, "overflow", "hidden");
     setStyleImportant(container, "margin", "0");
     setStyleImportant(container, "padding", "0");
-    setStyleImportant(container, "transform-origin", (isRight ? "right" : "left") + " " + (isBottom ? "bottom" : "top"));
+    // Always bottom-left
+    setStyleImportant(container, "transform-origin", "left bottom");
     setStyleImportant(container, "transform", "scale(" + scale + ")");
-    setStyleImportant(container, isBottom ? "bottom" : "top", OVERLAY_BOTTOM_PX + "px");
-    setStyleImportant(container, isBottom ? "top" : "bottom", "auto");
-    setStyleImportant(container, isRight ? "right" : "left", "14px");
-    setStyleImportant(container, isRight ? "left" : "right", "auto");
+    setStyleImportant(container, "bottom", OVERLAY_BOTTOM_PX + "px");
+    setStyleImportant(container, "top", "auto");
+    setStyleImportant(container, "left", "14px");
+    setStyleImportant(container, "right", "auto");
   }
 
   function attachOverlay() {
@@ -178,6 +188,16 @@
     attachOverlay();
     ctx = canvas.getContext("2d");
     resizeCanvas();
+  }
+
+  function saveHudSettings() {
+    if (chrome && chrome.storage && chrome.storage.local) {
+      var data = {};
+      data[SETTINGS_KEY] = { opacity: hudSettings.opacity, scale: hudSettings.scale };
+      chrome.storage.local.set(data, function () {
+        if (chrome.runtime.lastError) { /* ignore */ }
+      });
+    }
   }
 
   function resizeCanvas() {
@@ -252,9 +272,15 @@
     if (!chrome || !chrome.storage || !chrome.storage.local) { cb(DEFAULT_SETTINGS); return; }
     chrome.storage.local.get([SETTINGS_KEY], function (result) {
       var saved = result[SETTINGS_KEY];
-      cb(saved && typeof saved === "object"
-        ? { position: saved.position || DEFAULT_SETTINGS.position, opacity: saved.opacity != null ? saved.opacity : DEFAULT_SETTINGS.opacity, scale: saved.scale != null ? saved.scale : DEFAULT_SETTINGS.scale }
-        : DEFAULT_SETTINGS);
+      if (!saved || typeof saved !== "object") { cb(DEFAULT_SETTINGS); return; }
+      var m = saved.metrics && typeof saved.metrics === "object" ? saved.metrics : {};
+      var dm = DEFAULT_SETTINGS.metrics;
+      cb({
+        opacity: saved.opacity != null ? saved.opacity : DEFAULT_SETTINGS.opacity,
+        scale: saved.scale != null ? saved.scale : DEFAULT_SETTINGS.scale,
+        theme: saved.theme || DEFAULT_SETTINGS.theme,
+        metrics: { chart: m.chart != null ? m.chart : dm.chart, kills: m.kills != null ? m.kills : dm.kills, score: m.score != null ? m.score : dm.score, timer: m.timer != null ? m.timer : dm.timer, notifications: m.notifications != null ? m.notifications : dm.notifications }
+      });
     });
   }
 
@@ -279,6 +305,7 @@
   }
 
   function checkNotifications(prevMaxScore, newMaxScore, killDelta) {
+    if (!metricOn("notifications")) return;
     var milestones = [1000, 5000, 10000, 25000, 50000, 100000];
     for (var m = 0; m < milestones.length; m += 1) {
       if (prevMaxScore < milestones[m] && newMaxScore >= milestones[m]) {
@@ -640,7 +667,7 @@
       if (hasScore) {
         startNewGame(score, killsRaw, snakeId, inGameName);
       } else {
-        drawOverlay();
+        scheduleRedraw();
         return;
       }
     }
@@ -734,7 +761,7 @@
     if (shouldAddSample) {
       addGrowthSample(growthThisSecond);
     }
-    drawOverlay();
+    scheduleRedraw();
   }
 
   function getTickSizeSeconds(spanSeconds) {
@@ -822,6 +849,16 @@
     ctx.fill();
   }
 
+  function scheduleRedraw() {
+    if (!drawPending) {
+      drawPending = true;
+      requestAnimationFrame(function () {
+        drawPending = false;
+        drawOverlay();
+      });
+    }
+  }
+
   function drawOverlay() {
     if (!ctx || !canvas || !container) {
       return;
@@ -858,8 +895,10 @@
     }
     plot.maxValue = Math.max(20, maxValue * 1.25);
 
+    var T = getTheme();
+
     // ── Grid (dot-style) ──
-    ctx.fillStyle = "rgba(0, 212, 245, 0.06)";
+    ctx.fillStyle = "rgba(" + T.accent + ", 0.06)";
     for (var gRow = 1; gRow <= 3; gRow += 1) {
       var gy = chartT + (gRow / 4) * chartH;
       for (var gx = chartL; gx <= chartL + chartW; gx += 12) {
@@ -886,7 +925,7 @@
     ctx.textBaseline = "top";
     for (var tick = tickSec; tick <= plot.span; tick += tickSec) {
       var tickX = chartL + (tick / plot.span) * chartW;
-      ctx.strokeStyle = "rgba(0, 212, 245, 0.05)";
+      ctx.strokeStyle = "rgba(" + T.accent + ", 0.05)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(tickX, chartT);
@@ -898,10 +937,10 @@
 
     // Baseline
     var baseGrad = ctx.createLinearGradient(chartL, 0, chartL + chartW, 0);
-    baseGrad.addColorStop(0, "rgba(0, 212, 245, 0.0)");
-    baseGrad.addColorStop(0.3, "rgba(0, 212, 245, 0.25)");
-    baseGrad.addColorStop(0.7, "rgba(0, 212, 245, 0.25)");
-    baseGrad.addColorStop(1, "rgba(0, 212, 245, 0.0)");
+    baseGrad.addColorStop(0, "rgba(" + T.accent + ", 0.0)");
+    baseGrad.addColorStop(0.3, "rgba(" + T.accent + ", 0.25)");
+    baseGrad.addColorStop(0.7, "rgba(" + T.accent + ", 0.25)");
+    baseGrad.addColorStop(1, "rgba(" + T.accent + ", 0.0)");
     ctx.strokeStyle = baseGrad;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -913,48 +952,44 @@
     var fastTrend = buildSmoothedSeries(currentGame.samples, 6);
     var slowTrend = buildSmoothedSeries(currentGame.samples, 18);
 
-    // Gradient fill under the fast trend
-    if (fastTrend.length > 1) {
-      var fillGrad = ctx.createLinearGradient(0, chartT, 0, chartB);
-      fillGrad.addColorStop(0, "rgba(0, 212, 245, 0.18)");
-      fillGrad.addColorStop(0.6, "rgba(0, 180, 245, 0.06)");
-      fillGrad.addColorStop(1, "rgba(0, 150, 220, 0.0)");
-      drawSeriesArea(fastTrend, fillGrad, plot);
-    }
+    // ── Chart data series (respects chart toggle) ──
+    if (metricOn("chart")) {
+      if (fastTrend.length > 1) {
+        var fillGrad = ctx.createLinearGradient(0, chartT, 0, chartB);
+        fillGrad.addColorStop(0, "rgba(" + T.accent + ", 0.18)");
+        fillGrad.addColorStop(0.6, "rgba(" + T.accent + ", 0.06)");
+        fillGrad.addColorStop(1, "rgba(" + T.accent + ", 0.0)");
+        drawSeriesArea(fastTrend, fillGrad, plot);
+      }
 
-    // Raw data (subtle)
-    drawSeries(currentGame.samples, "rgba(255,255,255,0.5)", 1, plot);
-
-    // Amber trend line
-    drawSeries(slowTrend, "rgba(255, 170, 64, 0.75)", 1.3, plot);
-
-    // Cyan main line with glow
-    ctx.save();
-    ctx.shadowColor = "rgba(0, 212, 245, 0.5)";
-    ctx.shadowBlur = 6;
-    drawSeries(fastTrend, "rgba(0, 220, 250, 0.92)", 1.8, plot);
-    ctx.restore();
-
-    // Current value dot with glow
-    if (latestSample && latestSample.value > 0) {
-      var lx = chartL + (latestSample.t / plot.span) * chartW;
-      var ly = chartT + chartH - (latestSample.value / plot.maxValue) * chartH;
+      drawSeries(currentGame.samples, "rgba(255,255,255,0.5)", 1, plot);
+      drawSeries(slowTrend, "rgba(255, 170, 64, 0.75)", 1.3, plot);
 
       ctx.save();
-      ctx.shadowColor = "rgba(0, 230, 255, 0.7)";
-      ctx.shadowBlur = 8;
-      ctx.fillStyle = "#00e5ff";
-      ctx.beginPath();
-      ctx.arc(lx, ly, 2.5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.shadowColor = T.glow;
+      ctx.shadowBlur = 6;
+      drawSeries(fastTrend, T.line, 1.8, plot);
       ctx.restore();
 
-      // Value label
-      ctx.fillStyle = "rgba(0, 220, 250, 0.7)";
-      ctx.font = "bold 8px Consolas, SF Mono, monospace";
-      ctx.textAlign = "right";
-      ctx.textBaseline = "top";
-      ctx.fillText("+" + formatCompactNumber(latestSample.value), W - 3, chartT);
+      if (latestSample && latestSample.value > 0) {
+        var lx = chartL + (latestSample.t / plot.span) * chartW;
+        var ly = chartT + chartH - (latestSample.value / plot.maxValue) * chartH;
+
+        ctx.save();
+        ctx.shadowColor = T.glow;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = T.line;
+        ctx.beginPath();
+        ctx.arc(lx, ly, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.fillStyle = "rgba(" + T.accent + ", 0.7)";
+        ctx.font = "bold 8px Consolas, SF Mono, monospace";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "top";
+        ctx.fillText("+" + formatCompactNumber(latestSample.value), W - 3, chartT);
+      }
     }
 
     // ── Notification flash ──
@@ -977,22 +1012,26 @@
     }
 
     // ── Divider ──
-    var divGrad = ctx.createLinearGradient(10, 0, W - 10, 0);
-    divGrad.addColorStop(0, "rgba(0, 212, 245, 0.0)");
-    divGrad.addColorStop(0.3, "rgba(0, 212, 245, 0.12)");
-    divGrad.addColorStop(0.7, "rgba(0, 212, 245, 0.12)");
-    divGrad.addColorStop(1, "rgba(0, 212, 245, 0.0)");
-    ctx.strokeStyle = divGrad;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(10, divY);
-    ctx.lineTo(W - 10, divY);
-    ctx.stroke();
+    var showKills = metricOn("kills"), showTimer = metricOn("timer"), showScore = metricOn("score");
+    if (showKills || showTimer || showScore) {
+      var divGrad = ctx.createLinearGradient(10, 0, W - 10, 0);
+      divGrad.addColorStop(0, "rgba(" + T.accent + ", 0.0)");
+      divGrad.addColorStop(0.3, "rgba(" + T.accent + ", 0.12)");
+      divGrad.addColorStop(0.7, "rgba(" + T.accent + ", 0.12)");
+      divGrad.addColorStop(1, "rgba(" + T.accent + ", 0.0)");
+      ctx.strokeStyle = divGrad;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(10, divY);
+      ctx.lineTo(W - 10, divY);
+      ctx.stroke();
+    }
 
-    // ── Stats row ──
-    var c1 = W * 0.17;
-    var c2 = W * 0.50;
-    var c3 = W * 0.83;
+    // ── Stats row (respects toggles) ──
+    var statCols = [];
+    if (showKills) statCols.push("kills");
+    if (showTimer) statCols.push("timer");
+    if (showScore) statCols.push("score");
     var bigFont = "bold 16px Consolas, SF Mono, Fira Code, monospace";
     var smallFont = "7px Segoe UI, system-ui, sans-serif";
 
@@ -1003,47 +1042,37 @@
     }
 
     var isPB = allTimeBest >= 60 && currentGame.currentScore > 0 && currentGame.currentScore >= allTimeBest;
-
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
 
-    // Kills — cyan
-    ctx.save();
-    ctx.shadowColor = "rgba(0, 212, 245, 0.4)";
-    ctx.shadowBlur = 6;
-    ctx.fillStyle = "#00d4f5";
-    ctx.font = bigFont;
-    ctx.fillText(String(currentGame.currentKills || 0), c1, statsY);
-    ctx.restore();
-    ctx.fillStyle = "rgba(0, 180, 220, 0.4)";
-    ctx.font = smallFont;
-    ctx.fillText("KILLS", c1, labelY);
-
-    // Time — white-blue
-    ctx.fillStyle = "rgba(210, 225, 250, 0.92)";
-    ctx.font = bigFont;
-    ctx.fillText(formatOverlayTime(elapsedSec), c2, statsY);
-    ctx.fillStyle = "rgba(120, 150, 200, 0.4)";
-    ctx.font = smallFont;
-    ctx.fillText("TIME", c2, labelY);
-
-    // Score — amber (gold glow if PB)
-    ctx.save();
-    if (isPB) {
-      ctx.shadowColor = "rgba(255, 215, 0, 0.5)";
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = "#ffd740";
-    } else {
-      ctx.shadowColor = "rgba(255, 170, 64, 0.3)";
-      ctx.shadowBlur = 4;
-      ctx.fillStyle = "#ffab40";
+    for (var si = 0; si < statCols.length; si++) {
+      var cx = W * ((si + 0.5) / statCols.length);
+      var col = statCols[si];
+      if (col === "kills") {
+        ctx.save();
+        ctx.shadowColor = "rgba(255,70,70,0.7)"; ctx.shadowBlur = 8;
+        ctx.fillStyle = T.kill; ctx.font = bigFont;
+        ctx.fillText(String(currentGame.currentKills || 0), cx, statsY);
+        ctx.restore();
+        ctx.fillStyle = "rgba(255,100,80,0.55)"; ctx.font = smallFont;
+        ctx.fillText("KILLS", cx, labelY);
+      } else if (col === "timer") {
+        ctx.fillStyle = "rgba(210,225,250,0.92)"; ctx.font = bigFont;
+        ctx.fillText(formatOverlayTime(elapsedSec), cx, statsY);
+        ctx.fillStyle = "rgba(120,150,200,0.4)"; ctx.font = smallFont;
+        ctx.fillText("TIME", cx, labelY);
+      } else if (col === "score") {
+        ctx.save();
+        if (isPB) { ctx.shadowColor = "rgba(255,215,0,0.5)"; ctx.shadowBlur = 10; ctx.fillStyle = "#ffd740"; }
+        else { ctx.shadowColor = "rgba(255,170,64,0.3)"; ctx.shadowBlur = 4; ctx.fillStyle = "#ffab40"; }
+        ctx.font = bigFont;
+        ctx.fillText(formatCompactNumber(currentGame.currentScore), cx, statsY);
+        ctx.restore();
+        ctx.fillStyle = isPB ? "rgba(255,200,50,0.5)" : "rgba(200,140,50,0.4)";
+        ctx.font = smallFont;
+        ctx.fillText(isPB ? "PB!" : "SCORE", cx, labelY);
+      }
     }
-    ctx.font = bigFont;
-    ctx.fillText(formatCompactNumber(currentGame.currentScore), c3, statsY);
-    ctx.restore();
-    ctx.fillStyle = isPB ? "rgba(255, 200, 50, 0.5)" : "rgba(200, 140, 50, 0.4)";
-    ctx.font = smallFont;
-    ctx.fillText(isPB ? "PB!" : "SCORE", c3, labelY);
   }
 
   function startDomObserver() {
@@ -1057,7 +1086,7 @@
     domObserver = new MutationObserver(function () {
       if (!container || !container.isConnected) {
         createOverlay();
-        drawOverlay();
+        scheduleRedraw();
       }
     });
     domObserver.observe(target, { childList: true });
@@ -1073,25 +1102,32 @@
 
     if (!container || !canvas || !ctx || !container.isConnected) {
       createOverlay();
+      scheduleRedraw();
     } else {
       attachOverlay();
     }
-    drawOverlay();
     startDomObserver();
   }
 
   function startIntervals() {
     window.setInterval(sampleData, SAMPLE_INTERVAL_MS);
     window.setInterval(ensureOverlayPresence, OVERLAY_REATTACH_MS);
-    window.addEventListener("resize", function () { resizeCanvas(); drawOverlay(); });
+    window.addEventListener("resize", function () { resizeCanvas(); scheduleRedraw(); });
     window.addEventListener("pageshow", ensureOverlayPresence);
     if (chrome && chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener(function (changes) {
         if (changes[SETTINGS_KEY] && changes[SETTINGS_KEY].newValue) {
           var ns = changes[SETTINGS_KEY].newValue;
-          hudSettings = { position: ns.position || DEFAULT_SETTINGS.position, opacity: ns.opacity != null ? ns.opacity : DEFAULT_SETTINGS.opacity, scale: ns.scale != null ? ns.scale : DEFAULT_SETTINGS.scale };
+          var m = ns.metrics && typeof ns.metrics === "object" ? ns.metrics : {};
+          var dm = DEFAULT_SETTINGS.metrics;
+          hudSettings = {
+            opacity: ns.opacity != null ? ns.opacity : DEFAULT_SETTINGS.opacity,
+            scale: ns.scale != null ? ns.scale : DEFAULT_SETTINGS.scale,
+            theme: ns.theme || DEFAULT_SETTINGS.theme,
+            metrics: { chart: m.chart != null ? m.chart : dm.chart, kills: m.kills != null ? m.kills : dm.kills, score: m.score != null ? m.score : dm.score, timer: m.timer != null ? m.timer : dm.timer, notifications: m.notifications != null ? m.notifications : dm.notifications }
+          };
           applyOverlayStyles();
-          drawOverlay();
+          scheduleRedraw();
         }
       });
     }
