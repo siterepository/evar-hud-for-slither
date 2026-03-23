@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - EVAR HUD for Slither</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: #e4eaf6; background: #060810; line-height: 1.7; }
+    .container { max-width: 720px; margin: 0 auto; padding: 48px 24px; }
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(135deg, #e8f0ff, #00d4f5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .updated { color: #5a6e8a; font-size: 13px; margin-bottom: 32px; }
+    h2 { font-size: 18px; font-weight: 700; color: #c0d0e8; margin: 28px 0 10px; }
+    p, li { color: #8a9ebb; font-size: 14.5px; margin-bottom: 12px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { margin-bottom: 6px; }
+    a { color: #00d4f5; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { background: rgba(0,212,245,0.08); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .divider { height: 1px; background: rgba(80,140,240,0.1); margin: 28px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Privacy Policy</h1>
+    <p class="updated">EVAR HUD for Slither &mdash; Last updated: March 23, 2026</p>
+
+    <h2>Overview</h2>
+    <p>EVAR HUD for Slither ("the Extension") is a browser extension that provides a real-time heads-up display and analytics dashboard for the Slither.io and Slither.com browser games. We are committed to protecting your privacy.</p>
+
+    <h2>Data We Collect</h2>
+    <p>The Extension collects the following game-related data <strong>only while you are playing</strong> on slither.io or slither.com:</p>
+    <ul>
+      <li>Game score (current, max, and final)</li>
+      <li>Kill count</li>
+      <li>Game duration</li>
+      <li>In-game nickname (as entered by you in the game)</li>
+      <li>Game server hostname</li>
+    </ul>
+    <p>This data is stored <strong>locally on your device</strong> using Chrome's <code>chrome.storage.local</code> API. It never leaves your device unless you explicitly choose to submit it to the global leaderboard.</p>
+
+    <h2>Global Leaderboard (Optional)</h2>
+    <p>The Extension includes an <strong>optional</strong> global leaderboard feature. If you choose to submit your score:</p>
+    <ul>
+      <li>A randomly generated anonymous player ID is created and stored locally</li>
+      <li>Your best score, kill count, game duration, and optional display name are sent to our database</li>
+      <li>No personal information (email, real name, IP address, location, or browsing history) is collected or transmitted</li>
+      <li>You may choose any display name or leave it as the default "Anonymous Snake"</li>
+    </ul>
+    <p>Leaderboard data is stored on Supabase (a third-party database service). Their privacy policy is available at <a href="https://supabase.com/privacy">supabase.com/privacy</a>.</p>
+
+    <h2>Data We Do NOT Collect</h2>
+    <ul>
+      <li>Personal information (name, email, phone, address)</li>
+      <li>Browsing history or activity outside of slither.io / slither.com</li>
+      <li>Cookies or tracking identifiers</li>
+      <li>IP addresses</li>
+      <li>Location data</li>
+      <li>Financial information</li>
+      <li>Data from any website other than slither.io and slither.com</li>
+    </ul>
+
+    <h2>Permissions Explained</h2>
+    <ul>
+      <li><strong>storage</strong> &mdash; Used to save your game history and extension settings locally on your device.</li>
+      <li><strong>scripting</strong> &mdash; Used to inject the HUD overlay and game data reader into the Slither game page.</li>
+      <li><strong>Host permissions for slither.io / slither.com</strong> &mdash; Required to inject the in-game overlay and read game variables. The Extension only activates on these specific game pages.</li>
+      <li><strong>Host permission for supabase.co</strong> &mdash; Required for the optional global leaderboard feature to submit and retrieve scores.</li>
+    </ul>
+
+    <h2>Data Storage and Security</h2>
+    <p>All game history is stored locally using Chrome's built-in storage API. Leaderboard submissions use HTTPS encryption in transit. No authentication credentials or sensitive data are stored or transmitted.</p>
+
+    <h2>Data Retention</h2>
+    <ul>
+      <li><strong>Local data:</strong> Stored indefinitely until you uninstall the extension or clear Chrome extension data.</li>
+      <li><strong>Leaderboard data:</strong> Retained on the server until manually removed. You can request deletion by contacting us.</li>
+    </ul>
+
+    <h2>Third-Party Services</h2>
+    <p>The only third-party service used is <strong>Supabase</strong> for the optional global leaderboard. No analytics, advertising, or tracking services are used.</p>
+
+    <h2>Children's Privacy</h2>
+    <p>The Extension does not knowingly collect personal information from children under 13. Since no personal information is collected from any user, COPPA compliance is maintained.</p>
+
+    <h2>Changes to This Policy</h2>
+    <p>We may update this privacy policy from time to time. Changes will be reflected by updating the "Last updated" date above. Continued use of the Extension after changes constitutes acceptance of the revised policy.</p>
+
+    <h2>Contact</h2>
+    <p>For questions or concerns about this privacy policy, please open an issue on our <a href="https://github.com/siterepository/evar-hud-for-slither/issues">GitHub repository</a>.</p>
+
+    <div class="divider"></div>
+    <p style="color:#4a5e78; font-size:12px;">EVAR HUD for Slither is an open-source project. Source code is available on <a href="https://github.com/siterepository/evar-hud-for-slither">GitHub</a>.</p>
+  </div>
+</body>
+</html>

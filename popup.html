@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EVAR HUD for Slither</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="brand">
+        <img src="logo.svg" alt="Logo" class="logo" />
+        <div>
+          <h1>EVAR HUD for Slither</h1>
+          <p>Real-time game analytics</p>
+        </div>
+      </header>
+
+      <div class="quick-stats">
+        <div class="qs-item">
+          <span class="qs-val" id="qsGames">—</span>
+          <span class="qs-label">Games</span>
+        </div>
+        <div class="qs-item">
+          <span class="qs-val" id="qsBest">—</span>
+          <span class="qs-label">Best Size</span>
+        </div>
+        <div class="qs-item">
+          <span class="qs-val" id="qsKills">—</span>
+          <span class="qs-label">Total Kills</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="setting-block">
+        <div class="setting-label">Overlay Position</div>
+        <div class="pos-grid">
+          <button class="pos-btn" data-pos="top-left">↖</button>
+          <button class="pos-btn" data-pos="top-right">↗</button>
+          <button class="pos-btn" data-pos="bottom-left">↙</button>
+          <button class="pos-btn" data-pos="bottom-right">↘</button>
+        </div>
+      </div>
+
+      <div class="setting-block">
+        <div class="setting-label">Background Opacity: <span id="opacityLabel">92%</span></div>
+        <input type="range" id="opacitySlider" min="0" max="100" value="92" step="5" />
+      </div>
+
+      <div class="setting-block">
+        <div class="setting-label">HUD Size: <span id="scaleLabel">100%</span></div>
+        <input type="range" id="scaleSlider" min="60" max="150" value="100" step="10" />
+      </div>
+
+      <div class="divider"></div>
+
+      <button id="openStats" type="button" class="btn-primary">Open Dashboard</button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

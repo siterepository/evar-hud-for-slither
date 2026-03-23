@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EVAR HUD for Slither - Dashboard</title>
+    <link rel="stylesheet" href="stats.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="logo.svg" alt="Logo" class="logo" />
+        <div>
+          <h1>EVAR HUD for Slither</h1>
+          <p>Player analytics dashboard</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="exportButton" type="button">Export JSON</button>
+        <button id="refreshButton" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="my-stats">My Stats</button>
+      <button class="tab-btn" data-tab="global">Global Top</button>
+    </div>
+
+    <!-- ═══ MY STATS TAB ═══ -->
+    <div id="tab-my-stats" class="tab-content active">
+      <div class="flow">
+
+        <!-- Hero summary cards -->
+        <section class="summary-grid" id="summaryCards"></section>
+
+        <!-- Insights: Radar + Personal Bests -->
+        <section class="duo-row">
+          <article class="panel radar-panel">
+            <h2>Player Strengths</h2>
+            <canvas id="radarChart" width="440" height="340"></canvas>
+          </article>
+          <article class="panel">
+            <h2>Personal Bests</h2>
+            <div id="pbDashboard" class="stat-list"></div>
+          </article>
+        </section>
+
+        <!-- Charts: Score Trend + Distribution -->
+        <section class="duo-row">
+          <article class="panel wide-panel">
+            <h2>Score Trend by Game</h2>
+            <canvas id="scoreTrendChart" width="900" height="260"></canvas>
+          </article>
+          <article class="panel narrow-panel">
+            <h2>Score Distribution</h2>
+            <canvas id="scoreDistChart" width="400" height="260"></canvas>
+          </article>
+        </section>
+
+        <!-- Charts: Kills/Duration + Averages -->
+        <section class="duo-row">
+          <article class="panel wide-panel">
+            <h2>Kills &amp; Duration (Recent 30)</h2>
+            <canvas id="killsDurationChart" width="900" height="260"></canvas>
+          </article>
+          <article class="panel narrow-panel">
+            <h2>Session Averages</h2>
+            <div id="avgDashboard" class="stat-list"></div>
+          </article>
+        </section>
+
+        <!-- History table -->
+        <section class="panel table-panel">
+          <h2>Game History</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Start Time</th>
+                  <th>Name</th>
+                  <th>Duration</th>
+                  <th>Kills</th>
+                  <th>Final</th>
+                  <th>Max</th>
+                  <th>Gain</th>
+                  <th>Spike</th>
+                  <th>To Max</th>
+                  <th>Host</th>
+                </tr>
+              </thead>
+              <tbody id="historyRows"></tbody>
+            </table>
+          </div>
+          <p id="emptyState" class="empty">No game history yet. Play a round and this page will populate.</p>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ═══ GLOBAL TOP TAB ═══ -->
+    <div id="tab-global" class="tab-content">
+      <div class="global-layout">
+
+        <section class="panel global-submit-panel">
+          <h2>Submit Your Best Score</h2>
+          <p class="global-notice">Scores are submitted anonymously with a random player ID. Your display name is the only optional identifier.</p>
+          <div class="submit-form">
+            <div class="submit-row">
+              <label for="displayName">Display name (optional)</label>
+              <input type="text" id="displayName" maxlength="24" placeholder="Anonymous Snake" autocomplete="off" />
+            </div>
+            <div id="submitStatus" class="submit-status"></div>
+            <button id="submitScoreBtn" type="button" class="btn-submit">Submit My Best Score</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Global Top 50 — Best Size</h2>
+          <div class="global-notice setup-notice" id="setupNotice" style="display:none">
+            <strong>Setup required:</strong> Replace <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> in <code>stats.js</code> with your Supabase project credentials.
+          </div>
+          <div id="globalLoading" class="global-loading">Loading leaderboard…</div>
+          <div class="table-wrap" id="globalTableWrap" style="display:none">
+            <table id="globalTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Player</th>
+                  <th>Best Size</th>
+                  <th>Kills</th>
+                  <th>Duration</th>
+                  <th>Submitted</th>
+                </tr>
+              </thead>
+              <tbody id="globalRows"></tbody>
+            </table>
+          </div>
+          <p id="globalEmpty" class="empty" style="display:none">No scores submitted yet. Be the first!</p>
+        </section>
+
+      </div>
+    </div>
+
+    <script src="stats.js"></script>
+  </body>
+</html>
