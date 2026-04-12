@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EVAR HUD for Slither</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -14,8 +17,9 @@
         <img src="logo.svg" alt="Logo" class="logo" />
         <div class="brand-text">
           <h1>EVAR HUD</h1>
-          <p>Slither Analytics</p>
+          <p>for Slither</p>
         </div>
+        <span class="version">v1.3.1</span>
       </header>
 
       <!-- ── Quick Stats ── -->
@@ -24,21 +28,19 @@
           <span class="qs-val" id="qsGames">&mdash;</span>
           <span class="qs-label">Games</span>
         </div>
-        <div class="qs-item">
+        <div class="qs-item qs-accent">
           <span class="qs-val" id="qsBest">&mdash;</span>
           <span class="qs-label">Best Size</span>
         </div>
         <div class="qs-item">
           <span class="qs-val" id="qsKills">&mdash;</span>
-          <span class="qs-label">Total Kills</span>
+          <span class="qs-label">Kills</span>
         </div>
       </div>
 
-      <div class="divider"></div>
-
       <!-- ── Theme Picker ── -->
       <section class="section">
-        <div class="section-header">HUD Theme</div>
+        <div class="section-header">Theme</div>
         <div class="theme-row" id="themePicker">
           <button class="theme-swatch" data-theme="neon" title="Neon Serpent">
             <span class="swatch-fill swatch-neon"></span>
@@ -63,11 +65,9 @@
         </div>
       </section>
 
-      <div class="divider"></div>
-
       <!-- ── HUD Metrics Toggles ── -->
       <section class="section">
-        <div class="section-header">HUD Metrics</div>
+        <div class="section-header">Metrics</div>
         <div class="toggle-grid" id="toggleGrid">
           <label class="toggle-item">
             <input type="checkbox" data-metric="chart" checked />
@@ -97,30 +97,29 @@
         </div>
       </section>
 
-      <div class="divider"></div>
-
       <!-- ── Sliders ── -->
       <section class="section">
         <div class="slider-block">
           <div class="slider-header">
-            <span class="slider-label">Background Opacity</span>
+            <span class="slider-label">Opacity</span>
             <span class="slider-val" id="opacityLabel">92%</span>
           </div>
           <input type="range" class="custom-range" id="opacitySlider" min="0" max="100" value="92" step="1" />
         </div>
         <div class="slider-block">
           <div class="slider-header">
-            <span class="slider-label">HUD Size</span>
+            <span class="slider-label">Size</span>
             <span class="slider-val" id="scaleLabel">100%</span>
           </div>
           <input type="range" class="custom-range" id="scaleSlider" min="50" max="200" value="100" step="5" />
         </div>
       </section>
 
-      <div class="divider"></div>
-
       <!-- ── Action ── -->
-      <button id="openStats" type="button" class="btn-primary">Open Dashboard</button>
+      <button id="openStats" type="button" class="btn-primary">
+        <span>Open Dashboard</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+      </button>
 
     </main>
     <script src="popup.js"></script>

@@ -15,11 +15,11 @@
 
   // Theme color palettes
   var THEMES = {
-    neon:   { accent: "0,212,245",   line: "#00d4f5", fill: "rgba(0,212,245,0.18)",  glow: "rgba(0,212,245,0.5)",  kill: "#ff4545", border: "rgba(0,212,245,0.18)" },
-    ember:  { accent: "255,107,53",  line: "#ff6b35", fill: "rgba(255,107,53,0.18)", glow: "rgba(255,107,53,0.5)", kill: "#ffab40", border: "rgba(255,107,53,0.18)" },
-    ghost:  { accent: "176,190,197", line: "#b0bec5", fill: "rgba(176,190,197,0.14)",glow: "rgba(176,190,197,0.4)",kill: "#e0e0e0", border: "rgba(176,190,197,0.12)" },
-    matrix: { accent: "0,255,65",    line: "#00ff41", fill: "rgba(0,255,65,0.16)",   glow: "rgba(0,255,65,0.45)",  kill: "#76ff03", border: "rgba(0,255,65,0.15)" },
-    royal:  { accent: "179,136,255", line: "#b388ff", fill: "rgba(179,136,255,0.18)",glow: "rgba(179,136,255,0.5)",kill: "#ea80fc", border: "rgba(179,136,255,0.18)" }
+    neon:   { accent: "0,200,235",   line: "#00c8eb", fill: "rgba(0,200,235,0.15)",  glow: "rgba(0,200,235,0.45)",  kill: "#ef4444", border: "rgba(0,200,235,0.14)", score: "#fbbf24", scorePB: "#fde047", labelDim: "130,155,190" },
+    ember:  { accent: "240,100,40",  line: "#f06428", fill: "rgba(240,100,40,0.15)", glow: "rgba(240,100,40,0.45)", kill: "#fbbf24", border: "rgba(240,100,40,0.14)", score: "#fbbf24", scorePB: "#fde047", labelDim: "160,130,110" },
+    ghost:  { accent: "160,175,185", line: "#a0afb9", fill: "rgba(160,175,185,0.1)", glow: "rgba(160,175,185,0.35)",kill: "#d4d4d8", border: "rgba(160,175,185,0.1)",  score: "#e4e4e7", scorePB: "#fbbf24", labelDim: "120,130,140" },
+    matrix: { accent: "0,220,60",    line: "#00dc3c", fill: "rgba(0,220,60,0.12)",   glow: "rgba(0,220,60,0.4)",   kill: "#86efac", border: "rgba(0,220,60,0.12)",  score: "#fbbf24", scorePB: "#fde047", labelDim: "110,150,120" },
+    royal:  { accent: "160,120,240", line: "#a078f0", fill: "rgba(160,120,240,0.14)",glow: "rgba(160,120,240,0.45)",kill: "#f0abfc", border: "rgba(160,120,240,0.14)", score: "#fbbf24", scorePB: "#fde047", labelDim: "140,125,170" }
   };
 
   function getTheme() { return THEMES[hudSettings.theme] || THEMES.neon; }
@@ -105,7 +105,7 @@
   function applyOverlayStyles() {
     var bgOpacity = hudSettings.opacity != null ? hudSettings.opacity : 0.92;
     var scale = hudSettings.scale != null ? hudSettings.scale : 1.0;
-    var r = 8, g = 14, b = 28;
+    var r = 10, g = 12, b = 24;
     var bgAlpha = Math.max(0, Math.min(1, bgOpacity)).toFixed(2);
 
     setStyleImportant(container, "position", "fixed");
@@ -1050,25 +1050,25 @@
       var col = statCols[si];
       if (col === "kills") {
         ctx.save();
-        ctx.shadowColor = "rgba(255,70,70,0.7)"; ctx.shadowBlur = 8;
+        ctx.shadowColor = T.kill; ctx.shadowBlur = 6;
         ctx.fillStyle = T.kill; ctx.font = bigFont;
         ctx.fillText(String(currentGame.currentKills || 0), cx, statsY);
         ctx.restore();
-        ctx.fillStyle = "rgba(255,100,80,0.55)"; ctx.font = smallFont;
+        ctx.fillStyle = "rgba(" + T.labelDim + ",0.45)"; ctx.font = smallFont;
         ctx.fillText("KILLS", cx, labelY);
       } else if (col === "timer") {
-        ctx.fillStyle = "rgba(210,225,250,0.92)"; ctx.font = bigFont;
+        ctx.fillStyle = "rgba(220,225,235,0.88)"; ctx.font = bigFont;
         ctx.fillText(formatOverlayTime(elapsedSec), cx, statsY);
-        ctx.fillStyle = "rgba(120,150,200,0.4)"; ctx.font = smallFont;
+        ctx.fillStyle = "rgba(" + T.labelDim + ",0.35)"; ctx.font = smallFont;
         ctx.fillText("TIME", cx, labelY);
       } else if (col === "score") {
         ctx.save();
-        if (isPB) { ctx.shadowColor = "rgba(255,215,0,0.5)"; ctx.shadowBlur = 10; ctx.fillStyle = "#ffd740"; }
-        else { ctx.shadowColor = "rgba(255,170,64,0.3)"; ctx.shadowBlur = 4; ctx.fillStyle = "#ffab40"; }
+        if (isPB) { ctx.shadowColor = T.scorePB; ctx.shadowBlur = 10; ctx.fillStyle = T.scorePB; }
+        else { ctx.shadowColor = "rgba(251,191,36,0.25)"; ctx.shadowBlur = 4; ctx.fillStyle = T.score; }
         ctx.font = bigFont;
         ctx.fillText(formatCompactNumber(currentGame.currentScore), cx, statsY);
         ctx.restore();
-        ctx.fillStyle = isPB ? "rgba(255,200,50,0.5)" : "rgba(200,140,50,0.4)";
+        ctx.fillStyle = isPB ? "rgba(253,224,71,0.5)" : "rgba(" + T.labelDim + ",0.4)";
         ctx.font = smallFont;
         ctx.fillText(isPB ? "PB!" : "SCORE", cx, labelY);
       }
